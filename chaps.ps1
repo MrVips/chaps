@@ -72,10 +72,10 @@ $err_str = "[x] "
 
 ########## Check for Administrator Role ##############
 $inf_str + "Start Date/Time: $(get-date -format yyyyMMddTHHmmssffzz)" | Tee-Object -FilePath $out_file -Append
-if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")){ 
+if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) { 
     $neg_str + "You do not have Administrator rights. Some checks will not succeed. Note warnings." | Tee-Object -FilePath $out_file -Append
 } else {
-    $inf_str +  "Script running with Administrator rights." | Tee-Object -FilePath $out_file -Append
+    $inf_str + "Script running with Administrator rights." | Tee-Object -FilePath $out_file -Append
 }
 
 # Suppress All Errors? Uncomment this line
@@ -84,7 +84,7 @@ if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 ###############################
 
 ########### Gather System Info #############
-$inf_str +  "Dumping System Info to seperate file\n" | Tee-Object -FilePath $out_file -Append
+$inf_str + "Dumping System Info to seperate file\n" | Tee-Object -FilePath $out_file -Append
 systeminfo  | Tee-Object -FilePath $sysinfo_file -Append
 ###############################
 
@@ -93,28 +93,27 @@ $inf_str + "Windows Version: $(([Environment]::OSVersion).VersionString)" | Tee-
 $inf_str + "Windows Default Path for $env:Username : $env:Path" | Tee-Object -FilePath $out_file -Append
 
 $inf_str + "Checking IPv4 Network Settings"
-Try{
-    $ips = (Get-NetIPAddress | Where AddressFamily -eq 'IPv4' | Where IPAddress -ne '127.0.0.1').IPAddress
-    if ($ips -ne $null){
-        foreach ($ip in $ips){
-            if ($ip -ne $null){
+Try {
+    $ips = (Get-NetIPAddress | Where-Object AddressFamily -eq 'IPv4' | Where-Object IPAddress -ne '127.0.0.1').IPAddress
+    if ($null -ne $ips) {
+        foreach ($ip in $ips) {
+            if ($null -ne $ip) {
                 #$inf_str + "Host network interface assigned:" $ip
                 $inf_str + "Host network interface assigned: $ip" | Tee-Object -FilePath $out_file -Append
             }
         }
-    }else{
+    } else {
         # Use Throw function to call the Catch function
         Throw('Get-NetIPAddress error') | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
-    Try{
-        $ips = (gwmi win32_networkadapterconfiguration -filter 'ipenabled=true')
-        if ($ips -ne $null){
-            foreach ($ip in $ips){
-                if ($ip -ne $null){
-                    foreach ($i in $ip.IPAddress){
-                        if ($i -notmatch ":"){
+} Catch {
+    Try {
+        $ips = (Get-WmiObject win32_networkadapterconfiguration -filter 'ipenabled=true')
+        if ($null -ne $ips) {
+            foreach ($ip in $ips) {
+                if ($null -ne $ip) {
+                    foreach ($i in $ip.IPAddress) {
+                        if ($i -notmatch ":") {
                             $inf_str + "Host network interface assigned (gwmi): $i" | Tee-Object -FilePath $out_file -Append
                         }
                     }
@@ -124,38 +123,36 @@ Catch{
             # Use Throw function to call the Catch function
             Throw('gwmi win32_networkadapterconfiguration error') | Tee-Object -FilePath $out_file -Append
         }
-    }
-    Catch{
+    } Catch {
         $err_str + "Check IPv4 Network Settings failed." | Tee-Object -FilePath $out_file -Append
     }
 }
 
 $inf_str + "Checking IPv6 Network Settings" | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     # Checking using gwmi tells us if IPv6 is enabled on an interface because
     # it returns an IPv6 address. Get-NetIPAddress does to, but this is easier.
     $noipv6 = $true
-    $ips = (gwmi win32_networkadapterconfiguration -filter 'ipenabled=true')
-    if ($ips -ne $null){
-        foreach ($ip in $ips){
-            if ($ip -ne $null){
-                foreach ($i in $ip.IPAddress){
-                    if ($i -match ":"){
+    $ips = (Get-WmiObject win32_networkadapterconfiguration -filter 'ipenabled=true')
+    if ($null -ne $ips) {
+        foreach ($ip in $ips) {
+            if ($null -ne $ip) {
+                foreach ($i in $ip.IPAddress) {
+                    if ($i -match ":") {
                         $neg_str + "Host IPv6 network interface assigned (gwmi): $i" | Tee-Object -FilePath $out_file -Append
                         $noipv6 = $false
                     }
                 }
             }
         }
-        if ($noipv6){
+        if ($noipv6) {
             $pos_str + "No interfaces with IPv6 network interface assigned (gwmi)." | Tee-Object -FilePath $out_file -Append
         }
     } else {
         # Use Throw function to call the Catch function
         Throw('gwmi win32_networkadapterconfiguration error') | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Check IPv6 Network Settings failed (gwmi)." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -166,16 +163,15 @@ Resources:
 
 $inf_str + "Checking Windows AutoUpdate Configuration" | Tee-Object -FilePath $out_file -Append
 # Check Auto Update Configuration
-$AutoUpdateNotificationLevels= @{0="Not configured"; 1="Disabled" ; 2="Notify before download"; 3="Notify before installation"; 4="Scheduled installation"}
-Try{
+$AutoUpdateNotificationLevels = @{0 = "Not configured"; 1 = "Disabled" ; 2 = "Notify before download"; 3 = "Notify before installation"; 4 = "Scheduled installation" }
+Try {
     $resa = ((New-Object -com "Microsoft.Update.AutoUpdate").Settings).NotificationLevel
-    if ( $resa -eq 4){
+    if ( $resa -eq 4) {
         $pos_str + "Windows AutoUpdate is set to $resa : $AutoUpdateNotificationLevels.$resa" | Tee-Object -FilePath $out_file -Append
     } else {
         $neg_str + "Windows AutoUpdate is not configuration to automatically install updates: $resa : $AutoUpdateNotificationLevels.$resa" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Windows AutoUpdate test failed." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -184,49 +180,47 @@ Catch{
 Gist Grimthorr/pending-updates.ps1: https://gist.github.com/Grimthorr/44727ea8cf5d3df11cf7
 #>
 $inf_str + "Checking for missing Windows patches with Critical or Important MsrcSeverity values. NOTE: This make take a few minutes." | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $UpdateSession = New-Object -ComObject Microsoft.Update.Session
     $UpdateSearcher = $UpdateSession.CreateupdateSearcher()
     $Updates = @($UpdateSearcher.Search("IsHidden=0 and IsInstalled=0").Updates)
     #$Updates | Select-Object Title
-    $missing_updates = $Updates | Where-Object {$_.MsrcSeverity -gt 2} | Select-Object @{Name="KB"; Expression={$_.KBArticleIDs}} |Select-Object -ExpandProperty KB | Sort-Object -Unique 
+    $missing_updates = $Updates | Where-Object { $_.MsrcSeverity -gt 2 } | Select-Object @{Name = "KB"; Expression = { $_.KBArticleIDs } } | Select-Object -ExpandProperty KB | Sort-Object -Unique 
 
     if ($missing_updates) {
-        foreach ($m in $missing_updates){
+        foreach ($m in $missing_updates) {
             $neg_str + "Missing Critical or Important Update KB: $m" | Tee-Object -FilePath $out_file -Append
         }
     } else {
         $pos_str + "Windows system appears to be up-to-date for Critical and Important patches." | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Check for Critical and Important Windows patches test failed. Review Internet or patch server connectivity." | Tee-Object -FilePath $out_file -Append
 }
 
 # Check for BitLocker Disk Encryption
 $inf_str + "Checking BitLocker Encryption" | Tee-Object -FilePath $out_file -Append
 
-Try{
-    $vs = Get-BitLockerVolume -ErrorAction Stop | Where-Object {$_.VolumeType -eq 'OperatingSystem'} | Select VolumeStatus -ErrorAction Stop
-	$resvs = $vs.VolumeStatus 
-    if ($resvs -eq 'FullyEncrypted'){
+Try {
+    $vs = Get-BitLockerVolume -ErrorAction Stop | Where-Object { $_.VolumeType -eq 'OperatingSystem' } | Select-Object VolumeStatus -ErrorAction Stop
+    $resvs = $vs.VolumeStatus 
+    if ($resvs -eq 'FullyEncrypted') {
         $pos_str + "BitLocker detected and Operating System Volume is: $resvs" | Tee-Object -FilePath $out_file -Append
     } else {
         $neg_str + "BitLocker not detected on Operating System Volume or encryption is not complete. Please check for other encryption methods: $resvs" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
-	$vsm = manage-bde -status | Select-String -Pattern 'Conversion Status'
-	if ($vsm -ne $null){
-	    $resvsm = Select-String -Pattern 'Fully Encrypted'
-		if ($resvsm -ne $null){
-			$pos_str + "Operating System Volume is Fully Encrypted (manage-bde): $resvsm" | Tee-Object -FilePath $out_file -Append
-		} else {
-	    	$pos_str + "BitLocker not detected or encryption is not complete. Please check for other encryption methods (manage-bde): $resvsm" | Tee-Object -FilePath $out_file -Append
-	    }
-	} else {
-		$inf_str + "BitLocker not detected. Please check for other encryption methods." | Tee-Object -FilePath $out_file -Append
-	}
+} Catch {
+    $vsm = manage-bde -status | Select-String -Pattern 'Conversion Status'
+    if ($null -ne $vsm) {
+        $resvsm = Select-String -Pattern 'Fully Encrypted'
+        if ($null -ne $resvsm) {
+            $pos_str + "Operating System Volume is Fully Encrypted (manage-bde): $resvsm" | Tee-Object -FilePath $out_file -Append
+        } else {
+            $pos_str + "BitLocker not detected or encryption is not complete. Please check for other encryption methods (manage-bde): $resvsm" | Tee-Object -FilePath $out_file -Append
+        }
+    } else {
+        $inf_str + "BitLocker not detected. Please check for other encryption methods." | Tee-Object -FilePath $out_file -Append
+    }
 }
 
 # Check AlwaysInstallElevated Registry Keys
@@ -236,27 +230,24 @@ Resources:
 Windows Privilege Escalation Fundamentals: http://www.fuzzysecurity.com/tutorials/16.html
 #>
 $inf_str + "Checking if users can install software as NT AUTHORITY\SYSTEM" | Tee-Object -FilePath $out_file -Append
-Try{
-    Try{
+Try {
+    Try {
         $ressysele = Get-ItemProperty -path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer\AlwaysInstallElevated' -ErrorAction stop
-    }
-    Catch{
+    } Catch {
         $ressysele = $null;
     }
-    Try{
+    Try {
         $resusrele = Get-ItemProperty -path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer\AlwaysInstallElevated' -ErrorAction stop
-    }
-    Catch{
+    } Catch {
         $resusrele = $null;
     }
 
-    if ($ressysele -or $resusrele){
-            $neg_str + "Users can install software as NT AUTHORITY\SYSTEM." | Tee-Object -FilePath $out_file -Append
+    if ($ressysele -or $resusrele) {
+        $neg_str + "Users can install software as NT AUTHORITY\SYSTEM." | Tee-Object -FilePath $out_file -Append
     } else {
-            $pos_str + "Users cannot install software as NT AUTHORITY\SYSTEM." | Tee-Object -FilePath $out_file -Append
+        $pos_str + "Users cannot install software as NT AUTHORITY\SYSTEM." | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Check if users can install software as NT AUTHORITY\SYSTEM failed" | Tee-Object -FilePath $out_file -Append
 }
 
@@ -275,139 +266,126 @@ Resources:
 #>
 
 $inf_str + "Testing if PowerShell Commandline Audting is Enabled" | Tee-Object -FilePath $out_file -Append
-Try{
-    if ([bool](Get-ItemProperty -path 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System\Audit' -ErrorAction SilentlyContinue).ProcessCreationIncludeCmdLine_Enabled){
+Try {
+    if ([bool](Get-ItemProperty -path 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System\Audit' -ErrorAction SilentlyContinue).ProcessCreationIncludeCmdLine_Enabled) {
         $pos_str + "ProcessCreationIncludeCmdLine_Enabled Is Set" | Tee-Object -FilePath $out_file -Append
     } else {
         $neg_str + "ProcessCreationIncludeCmdLine_Enabled Is Not Set" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing PowerShell Commandline Audting failed" | Tee-Object -FilePath $out_file -Append
 }
 
 $inf_str + "Testing if PowerShell Moduling is Enabled" | Tee-Object -FilePath $out_file -Append
-Try{
-    if ([bool](Get-ItemProperty -path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ModuleLogging' -ErrorAction SilentlyContinue).EnableModuleLogging){
+Try {
+    if ([bool](Get-ItemProperty -path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ModuleLogging' -ErrorAction SilentlyContinue).EnableModuleLogging) {
         $pos_str + "EnableModuleLogging Is Set" | Tee-Object -FilePath $out_file -Append
     } else {
         $neg_str + "EnableModuleLogging Is Not Set" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
-    Try{
-        if ([bool](Get-ItemProperty -path 'HKLM:\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\ModuleLogging' -ErrorAction SilentlyContinue).EnableModuleLogging){
+} Catch {
+    Try {
+        if ([bool](Get-ItemProperty -path 'HKLM:\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\ModuleLogging' -ErrorAction SilentlyContinue).EnableModuleLogging) {
             $pos_str + "EnableModuleLogging Is Set" | Tee-Object -FilePath $out_file -Append
         } else {
             $neg_str + "EnableModuleLogging Is Not Set" | Tee-Object -FilePath $out_file -Append
         }
-    }
-    Catch{
+    } Catch {
         $err_str + "Testing PowerShell Moduling failed" | Tee-Object -FilePath $out_file -Append
     }
 }
 
 $inf_str + "Testing if PowerShell EnableScriptBlockLogging is Enabled" | Tee-Object -FilePath $out_file -Append
-Try{
-    if ([bool](Get-ItemProperty -path 'HKLM:\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging' -ErrorAction SilentlyContinue).EnableScriptBlockLogging){
+Try {
+    if ([bool](Get-ItemProperty -path 'HKLM:\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging' -ErrorAction SilentlyContinue).EnableScriptBlockLogging) {
         $pos_str + "EnableScriptBlockLogging Is Set" | Tee-Object -FilePath $out_file -Append
     } else {
         $neg_str + "EnableScriptBlockLogging Is Not Set" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
-    Try{
-        if ([bool](Get-ItemProperty -path 'HKLM:\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging' -ErrorAction SilentlyContinue).EnableScriptBlockLogging){
+} Catch {
+    Try {
+        if ([bool](Get-ItemProperty -path 'HKLM:\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging' -ErrorAction SilentlyContinue).EnableScriptBlockLogging) {
             $pos_str + "EnableScriptBlockLogging Is Set" | Tee-Object -FilePath $out_file -Append
         } else {
             $neg_str + "EnableScriptBlockLogging Is Not Set" | Tee-Object -FilePath $out_file -Append
         }
-    }
-    Catch{
+    } Catch {
         $err_str + "Testing PowerShell EnableScriptBlockLogging failed" | Tee-Object -FilePath $out_file -Append
     }
 }
 
 $inf_str + "Testing if PowerShell EnableScriptBlockInvocationLogging is Enabled" | Tee-Object -FilePath $out_file -Append
-Try{
-    if ([bool](Get-ItemProperty -path 'HKLM:\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging' -ErrorAction SilentlyContinue).EnableScriptBlockInvocationLogging){
+Try {
+    if ([bool](Get-ItemProperty -path 'HKLM:\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging' -ErrorAction SilentlyContinue).EnableScriptBlockInvocationLogging) {
         $pos_str + "EnableScriptBlockInvocationLogging Is Set" | Tee-Object -FilePath $out_file -Append
     } else {
         $neg_str + "EnableScriptBlockInvocationLogging Is Not Set" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
-    Try{
-        if ([bool](Get-ItemProperty -path 'HKLM:\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging' -ErrorAction SilentlyContinue).EnableScriptBlockInvocationLogging){
+} Catch {
+    Try {
+        if ([bool](Get-ItemProperty -path 'HKLM:\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging' -ErrorAction SilentlyContinue).EnableScriptBlockInvocationLogging) {
             $pos_str + "EnableScriptBlockInvocationLogging Is Set" | Tee-Object -FilePath $out_file -Append
         } else {
             $neg_str + "EnableScriptBlockInvocationLogging Is Not Set" | Tee-Object -FilePath $out_file -Append
         }
-    }
-    Catch{
+    } Catch {
         $err_str + "Testing PowerShell EnableScriptBlockInvocationLogging failed" | Tee-Object -FilePath $out_file -Append
     }
 }
 
 $inf_str + "Testing if PowerShell EnableTranscripting is Enabled" | Tee-Object -FilePath $out_file -Append
-Try{
-    if ([bool](Get-ItemProperty -path 'HKLM:\Software\Policies\Microsoft\Windows\PowerShell\Transcription' -ErrorAction SilentlyContinue).EnableTranscripting){
+Try {
+    if ([bool](Get-ItemProperty -path 'HKLM:\Software\Policies\Microsoft\Windows\PowerShell\Transcription' -ErrorAction SilentlyContinue).EnableTranscripting) {
         $pos_str + "EnableTranscripting Is Set" | Tee-Object -FilePath $out_file -Append
     } else {
         $neg_str + "EnableTranscripting Is Not Set" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
-    Try{
-        if ([bool](Get-ItemProperty -path 'HKLM:\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\Transcription' -ErrorAction SilentlyContinue).EnableTranscripting){
+} Catch {
+    Try {
+        if ([bool](Get-ItemProperty -path 'HKLM:\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\Transcription' -ErrorAction SilentlyContinue).EnableTranscripting) {
             $pos_str + "EnableTranscripting Is Set" | Tee-Object -FilePath $out_file -Append
         } else {
             $neg_str + "EnableTranscripting Is Not Set" | Tee-Object -FilePath $out_file -Append
         }
-    }
-    Catch{
+    } Catch {
         $err_str + "Testing PowerShell EnableTranscripting failed" | Tee-Object -FilePath $out_file -Append
     }
 }
 
 $inf_str + "Testing if PowerShell EnableInvocationHeader is Enabled" | Tee-Object -FilePath $out_file -Append
-Try{
-    if ([bool](Get-ItemProperty -path 'HKLM:\Software\Policies\Microsoft\Windows\PowerShell\Transcription' -ErrorAction SilentlyContinue).EnableInvocationHeader){
+Try {
+    if ([bool](Get-ItemProperty -path 'HKLM:\Software\Policies\Microsoft\Windows\PowerShell\Transcription' -ErrorAction SilentlyContinue).EnableInvocationHeader) {
         $pos_str + "EnableInvocationHeader Is Set" | Tee-Object -FilePath $out_file -Append
     } else {
         $neg_str + "EnableInvocationHeader Is Not Set" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
-    Try{
-        if ([bool](Get-ItemProperty -path 'HKLM:\Software\Wow6432Node\Policies\Microsoft\Windows\PowerShell\Transcription' -ErrorAction SilentlyContinue).EnableInvocationHeader){
+} Catch {
+    Try {
+        if ([bool](Get-ItemProperty -path 'HKLM:\Software\Wow6432Node\Policies\Microsoft\Windows\PowerShell\Transcription' -ErrorAction SilentlyContinue).EnableInvocationHeader) {
             $pos_str + "EnableInvocationHeader Is Set" | Tee-Object -FilePath $out_file -Append
         } else {
             $neg_str + "EnableInvocationHeader Is Not Set" | Tee-Object -FilePath $out_file -Append
         }
-    }
-    Catch{
+    } Catch {
         $err_str + "Testing PowerShell EnableInvocationHeader failed" | Tee-Object -FilePath $out_file -Append
     }
 }
 
 $inf_str + "Testing if PowerShell ProtectedEventLogging is Enabled" | Tee-Object -FilePath $out_file -Append
-Try{
-    if ([bool](Get-ItemProperty -path 'HKLM:\Software\Policies\Microsoft\Windows\EventLog\ProtectedEventLogging' -ErrorAction SilentlyContinue).EnableProtectedEventLogging){
+Try {
+    if ([bool](Get-ItemProperty -path 'HKLM:\Software\Policies\Microsoft\Windows\EventLog\ProtectedEventLogging' -ErrorAction SilentlyContinue).EnableProtectedEventLogging) {
         $pos_str + "EnableProtectedEventLogging Is Set" | Tee-Object -FilePath $out_file -Append
     } else {
         $neg_str + "EnableProtectedEventLogging Is Not Set" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
-    Try{
-        if ([bool](Get-ItemProperty -path 'HKLM:\Software\Wow6432Node\Policies\Microsoft\Windows\EventLog\ProtectedEventLogging' -ErrorAction SilentlyContinue).EnableProtectedEventLogging){
+} Catch {
+    Try {
+        if ([bool](Get-ItemProperty -path 'HKLM:\Software\Wow6432Node\Policies\Microsoft\Windows\EventLog\ProtectedEventLogging' -ErrorAction SilentlyContinue).EnableProtectedEventLogging) {
             $pos_str + "EnableProtectedEventLogging Is Set" | Tee-Object -FilePath $out_file -Append
         } else {
             $neg_str + "EnableProtectedEventLogging Is Not Set" | Tee-Object -FilePath $out_file -Append
         }
-    }
-    Catch{
+    } Catch {
         $err_str + "Testing PowerShell ProtectedEventLogging failed" | Tee-Object -FilePath $out_file -Append
     }
 }
@@ -426,31 +404,30 @@ Resources:
 $inf_str + "Event logs settings defaults are too small. Test that max sizes have been increased." | Tee-Object -FilePath $out_file -Append
 
 $logs = @{
-'Application' = 4
-'System' = 4
-'Security' = 4
-'Windows PowerShell' = 4
-'Microsoft-Windows-PowerShell/Operational' = 1
-'Microsoft-Windows-TerminalServices-LocalSessionManager/Operational'= 1
-'Microsoft-Windows-TaskScheduler/Operational' = 1
-'Microsoft-Windows-SMBServer/Audit' = 1
-'Microsoft-Windows-Security-Netlogon/Operational' = 1
-'Microsoft-Windows-WinRM/Operational' = 1
-'Microsoft-Windows-WMI-Activity/Operational' = 1
+    'Application'                                                        = 4
+    'System'                                                             = 4
+    'Security'                                                           = 4
+    'Windows PowerShell'                                                 = 4
+    'Microsoft-Windows-PowerShell/Operational'                           = 1
+    'Microsoft-Windows-TerminalServices-LocalSessionManager/Operational' = 1
+    'Microsoft-Windows-TaskScheduler/Operational'                        = 1
+    'Microsoft-Windows-SMBServer/Audit'                                  = 1
+    'Microsoft-Windows-Security-Netlogon/Operational'                    = 1
+    'Microsoft-Windows-WinRM/Operational'                                = 1
+    'Microsoft-Windows-WMI-Activity/Operational'                         = 1
 }
 
-foreach ($l in $logs.keys){
-    Try{
-        $lsize = [math]::Round((Get-WinEvent -ListLog $l -ErrorAction Stop).MaximumSizeInBytes / (1024*1024*1024),3)
-        if ($lsize -lt $logs[$l]){
+foreach ($l in $logs.keys) {
+    Try {
+        $lsize = [math]::Round((Get-WinEvent -ListLog $l -ErrorAction Stop).MaximumSizeInBytes / (1024 * 1024 * 1024), 3)
+        if ($lsize -lt $logs[$l]) {
             #$neg_str + $l "max log size is smaller than $logs[$l] GB: $lsize GB" | Tee-Object -FilePath $out_file -Append
             $neg_str + "$l max log size is smaller than $logs[$l] GB: $lsize GB" | Tee-Object -FilePath $out_file -Append
         } else {
             #$pos_str + $l "max log size is okay: $lsize GB" | Tee-Object -FilePath $out_file -Append
             $pos_str + "$l max log size is okay: $lsize GB" | Tee-Object -FilePath $out_file -Append
         }
-    }
-    Catch{
+    } Catch {
         $err_str + "Testing $l log size failed." | Tee-Object -FilePath $out_file -Append
     }
 }
@@ -469,7 +446,7 @@ Resources:
 #>
 
 $inf_str + "Testing if PowerShell Version is at least version 5" | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $psver = $PSVersionTable.PSVersion.Major
     $fpsver = $PSVersionTable.PSVersion
     if ([int]$psver -lt 5) { 
@@ -477,41 +454,42 @@ Try{
     } else { 
         $pos_str + "Current PowerShell Version: $fpsver" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing PowerShell Version failed." | Tee-Object -FilePath $out_file -Append
 }
 
 $inf_str + "Testing if PowerShell Version 2 is permitted" | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     # NOTE: Workstation test. Servers would need to test "Get-WindowsFeature PowerShell-V2"
-    $psver2 = (Get-WindowsOptionalFeature -Online -FeatureName MicrosoftWindowsPowerShellV2).state
-    if ($psver2 -ne $null){
+    if (Get-CimInstance -ClassName Win32_OperatingSystem -eq 1) {
+        $psver2 = (Get-WindowsOptionalFeature -Online -FeatureName MicrosoftWindowsPowerShellV2).state
+    } else {
+        $psver2 = (Get-WindowsFeature PowerShell-V2).state
+    }
+    if ($null -ne $psver2) {
         if ($psver2 -eq 'Enabled') { 
             $neg_str + "PowerShell Version 2 should be disabled: $psver2" | Tee-Object -FilePath $out_file -Append
         } else { 
             $pos_str + "PowerShell Version 2 is: $psver2" | Tee-Object -FilePath $out_file -Append
         }
-    }else{
+    } else {
         $inf_str + "Get-WindowsOptionalFeature is not available to test if PowerShell Version 2 is permitted." | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for PowerShell Version 2 failed." | Tee-Object -FilePath $out_file -Append
 }
 
 $inf_str + "Testing if .NET Framework version supports PowerShell Version 2" | Tee-Object -FilePath $out_file -Append
-Try{
-    $netv=(Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse -ErrorAction SilentlyContinue| Get-ItemProperty -Name Version -ErrorAction SilentlyContinue).Version
-    foreach ($e in $netv){
+Try {
+    $netv = (Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse -ErrorAction SilentlyContinue | Get-ItemProperty -Name Version -ErrorAction SilentlyContinue).Version
+    foreach ($e in $netv) {
         if ($e -lt 3.0) {
             $neg_str + ".NET Framework less than 3.0 installed which could allow PS2 execution: $e" | Tee-Object -FilePath $out_file -Append
         } else {
             $pos_str + ".NET Framework greater than 3.0 installed: $e" | Tee-Object -FilePath $out_file -Append
         }
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for .NET vesions that support PowerShell Version 2 failed." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -521,15 +499,14 @@ Resources:
     Detecting Offensive PowerShell Attack Tools: https://adsecurity.org/?p=2604
 #>
 $inf_str + "Testing if PowerShell is configured to use Constrained Language." | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $ps_lang = $ExecutionContext.SessionState.LanguageMode
     if ($ps_lang -eq 'ConstrainedLanguage') { 
         $pos_str + "Execution Langugage Mode Is: $ps_lang" | Tee-Object -FilePath $out_file -Append
-    } else  { 
+    } else { 
         $neg_str + "Execution Langugage Mode Is Not ConstrainedLanguage: $ps_lang" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for PowerShell Constrained Language failed." | Tee-Object -FilePath $out_file -Append
 }
 ###############################
@@ -543,15 +520,14 @@ Resources:
 
 # Cached Logons should be set to 0 or 1.
 $inf_str + "Testing if system is configured to limit the number of stored credentials." | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $regv = (Get-ItemProperty -path "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\" -ErrorAction SilentlyContinue).CachedLogonsCount
     if ([int]$regv -lt 2) {
         $pos_str + "CachedLogonsCount Is Set to: $regv" | Tee-Object -FilePath $out_file -Append
     } else {
         $neg_str + "CachedLogonsCount Is Not Set to 0 or 1: $regv" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for stored credential settings failed." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -566,26 +542,24 @@ Resources:
 
 # Deny RDP Connections
 $inf_str + "Testing if system is configured to prevent RDP service." | Tee-Object -FilePath $out_file -Append
-Try{
-    if ([bool](Get-ItemProperty -path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -ErrorAction SilentlyContinue).AllowRemoteRPC){
+Try {
+    if ([bool](Get-ItemProperty -path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -ErrorAction SilentlyContinue).AllowRemoteRPC) {
         $neg_str + "AllowRemoteRPC is should be set to disable RDP: 1" | Tee-Object -FilePath $out_file -Append
     } else {
         $pos_str + "AllowRemoteRPC is set to deny RDP: 0" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing if system prevents RDP service failed." | Tee-Object -FilePath $out_file -Append
 }
 
 $inf_str + "Testing if system is configured to deny remote access via Terminal Services." | Tee-Object -FilePath $out_file -Append
-Try{
-    if ([bool](Get-ItemProperty -path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -ErrorAction SilentlyContinue).fDenyTSConnections){
+Try {
+    if ([bool](Get-ItemProperty -path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -ErrorAction SilentlyContinue).fDenyTSConnections) {
         $pos_str + "fDenyTSConnections is set to deny remote connections: 1" | Tee-Object -FilePath $out_file -Append
     } else {
         $neg_str + "fDenyTSConnections should be set to not allow remote connections: 0" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing if system denies remote access via Terminal Services failed." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -597,39 +571,36 @@ Resources:
 #>
 
 $inf_str + "Testing if WinFW Service is running." | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     if (Test-WSMan -ErrorAction Stop) { 
         $neg_str + "WinRM Services is running and may be accepting connections: Test-WSMan check."  | Tee-Object -FilePath $out_file -Append
     } else { 
         $pos_str + "WinRM Services is not running: Test-WSMan check."  | Tee-Object -FilePath $out_file -Append
     }   
-}
-Catch{
-    Try{
+} Catch {
+    Try {
         $ress = (Get-Service WinRM).status
         if ($ress -eq 'Stopped') { 
             $pos_str + "WinRM Services is not running: Get-Service check."  | Tee-Object -FilePath $out_file -Append
         } else { 
             $neg_str + "WinRM Services is running and may be accepting connections: Get-Service check."  | Tee-Object -FilePath $out_file -Append
         }
-    }
-    Catch{
+    } Catch {
         $err_str + "Testing if WimRM Service is running failed." | Tee-Object -FilePath $out_file -Append
     }
 }
 
 $inf_str + "Testing if Windows Network Firewall rules allow remote connections." | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $resfw = Get-NetFirewallRule -DisplayName 'Windows Remote Management (HTTP-In)'
-    foreach ($r in $resfw){
-        if ($r.Enabled -eq 'False'){
+    foreach ($r in $resfw) {
+        if ($r.Enabled -eq 'False') {
             $pos_str + "WinRM Firewall Rule $r.Name is disabled." | Tee-Object -FilePath $out_file -Append
         } else {
             $neg_str + "WinRM Firewall Rule $r.Name is enabled." | Tee-Object -FilePath $out_file -Append
         }
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing if Windows Network Firewall rules failed." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -642,9 +613,9 @@ Resources:
     Get-LocalGroupMember: https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.localaccounts/get-localgroupmember?view=powershell-5.1
 #>
 $inf_str + "Testing Local Administrator Accounts." | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $numadmin = (Get-LocalGroupMember -Group "Administrators" -ErrorAction Stop).Name.count
-    if ([int]$numadmin -gt 1){
+    if ([int]$numadmin -gt 1) {
         $neg_str + "More than one account is in local Administrators group: $numadmin" | Tee-Object -FilePath $out_file -Append
     } else {
         $pos_str + "One account in local Administrators group." | Tee-Object -FilePath $out_file -Append
@@ -655,22 +626,21 @@ Try{
     }
 }
 # No PS Cmdlet, use net command
-Catch [System.InvalidOperationException]{
+Catch [System.InvalidOperationException] {
     $netout = (net localgroup Administrators)
-    foreach ($item in $netout){
+    foreach ($item in $netout) {
         if ($item -match '----') {
             $index = $netout.IndexOf($item)
         }
     }
 
     $numadmin = $netout[($index + 1)..($netout.Length - 3)]
-    if ($content.length -gt 1){
+    if ($content.length -gt 1) {
         $neg_str + "More than one account is in local Administrators group: $numadmin.length" | Tee-Object -FilePath $out_file -Append
     } else {
         $pos_str + "One account in local Administrators group." | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing local Administrator Accounts failed." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -691,11 +661,11 @@ Resources:
 # Deploy Microsoft AppLocker to lock down what can run on the system.
 
 $inf_str + "Testing if AppLocker is configured." | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $resapp = (Get-AppLockerPolicy -local -ErrorAction Stop).RuleCollectionTypes
-    if ($resapp){
+    if ($resapp) {
         $resapp_names = $resapp -join ','
-        if ($resapp.Contains('Script')){
+        if ($resapp.Contains('Script')) {
             $pos_str + "AppLocker configured to manage PowerShell scripts: $resapp_names" | Tee-Object -FilePath $out_file -Append
         } else {
 
@@ -704,8 +674,7 @@ Try{
     } else {
         $neg_str + "AppLocker not configured" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for Microsoft AppLocker failed." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -714,10 +683,10 @@ Catch{
 ###############################
 # Deploy current version of EMET with recommended software settings.
 
-Try{
-    if ([System.Environment]::OSVersion.Version.Major -lt 10){
+Try {
+    if ([System.Environment]::OSVersion.Version.Major -lt 10) {
         $resemet = (get-service EMET_Service).status
-        if ($resemet -eq 'Running'){
+        if ($resemet -eq 'Running') {
             $pos_str + "EMET Service is running." | Tee-Object -FilePath $out_file -Append
         } else {
             $neg_str + "EMET Service is not running: $resemet" | Tee-Object -FilePath $out_file -Append
@@ -725,8 +694,7 @@ Try{
     } else {
         $inf_str + "EMET Service components are built into Windows 10." | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for Microsoft EMET service failed." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -734,14 +702,13 @@ Catch{
 # Deploy LAPS to manage the local Administrator (RID 500) password.
 ###############################
 $inf_str + "Testing if Local Administrator Password Solution (LAPS) is installed." | Tee-Object -FilePath $out_file -Append
-Try{
-    if (Get-ChildItem ‘C:\program files\LAPS\CSE\Admpwd.dll’ -ErrorAction Stop){
+Try {
+    if (Test-Path ‘C:\program files\LAPS\CSE\Admpwd.dll’) {
         $pos_str + "Local Administrator Password Solution (LAPS) is installed." | Tee-Object -FilePath $out_file -Append
     } else {
         $neg_str + "Local Administrator Password Solution (LAPS) is not installed." | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for Microsoft LAPS failed." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -756,10 +723,10 @@ Resources:
 #>
 
 $inf_str + "Testing if Group Policy Objects." | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $ressess = (Get-ItemProperty -path 'HKLM:\Software\Policies\Microsoft\Windows\Group Policy\{35378EAC-683F-11D2-A89A-00C04FBBCFA2}\' -ErrorAction SilentlyContinue).NoGPOListChanges
-    if ($ressess -ne $null){
-        if ($ressess){
+    if ($null -ne $ressess) {
+        if ($ressess) {
             $neg_str + "GPO settings are configured to only be applied after change: $ressess" | Tee-Object -FilePath $out_file -Append
         } else {
             $pos_str + "GPO settings are configured to be applied when GPOs are processed: $ressess" | Tee-Object -FilePath $out_file -Append
@@ -767,8 +734,7 @@ Try{
     } else {
         $inf_str + "System may not be assigned GPOs." | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for Microsoft GPO failed." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -794,23 +760,22 @@ Resources:
 #>
 
 $inf_str + "Testing for WPAD entry in $env:systemdrive\Windows\System32\Drivers\etc\hosts" | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $reswpad = Select-String -path $env:systemdrive\Windows\System32\Drivers\etc\hosts -pattern wpad
-    if ($resllmnr -ne $null){
+    if ($null -ne $resllmnr) {
         $pos_str + "WPAD entry detected: $reswpad" | Tee-Object -FilePath $out_file -Append
     } else {
         $neg_str + "No WPAD entry detected. Should contain: wpad 255.255.255.255" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for WPAD in /etc/hosts failed." | Tee-Object -FilePath $out_file -Append
 }
 
 $inf_str + "Testing for WPADOverride registry key." | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $reswpad2 = (Get-ItemProperty -path 'HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings\Wpad' -ErrorAction SilentlyContinue).WpadOverride
-    if ($reswpad2 -ne $null){
-        if ($reswpad2){
+    if ($null -ne $reswpad2) {
+        if ($reswpad2) {
             $pos_str + "WpadOverride registry key is configured to disable WPAD: $reswpad2" | Tee-Object -FilePath $out_file -Append
         } else {
             $neg_str + "WpadOverride registry key is configured to allow WPAD: $reswpad2" | Tee-Object -FilePath $out_file -Append
@@ -818,16 +783,15 @@ Try{
     } else {
         $inf_str + "System not configured with the WpadOverride registry key." | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for WpadOverride registry key failed." | Tee-Object -FilePath $out_file -Append
 }
 
 $inf_str + "Testing WinHttpAutoProxySvc configuration." | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $reswpads = (Get-Service -name WinHttpAutoProxySvc).Status
-    if ($reswpads -ne $null){
-        if ($reswpads -eq 'Running'){
+    if ($null -ne $reswpads) {
+        if ($reswpads -eq 'Running') {
             $neg_str + "WinHttpAutoProxySvc service is: $reswpads" | Tee-Object -FilePath $out_file -Append
         } else {
             $pos_str + "WinHttpAutoProxySvc service is: $reswpads" | Tee-Object -FilePath $out_file -Append
@@ -835,22 +799,20 @@ Try{
     } else {
         $inf_str + "WinHttpAutoProxySvc service was not found: $reswpads" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for WinHttpAutoProxySvc failed." | Tee-Object -FilePath $out_file -Append
 }
 
 # Deploy security back-port patch (KB3165191).
 $inf_str + "Testing if KB3165191 is installed to harden WPAD by check installation date." | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $reswphf = (Get-HotFix -id KB3165191 -ErrorAction SilentlyContinue).InstalledOn
-    if ($reswphf -ne $null){
+    if ($null -ne $reswphf) {
         $pos_str + "KB3165191 to harden WPAD is installed: $reswphf" | Tee-Object -FilePath $out_file -Append
     } else {
         $neg_str + "KB3165191 to harden WPAD is not installed." | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for WPAD KB3165191 failed." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -858,26 +820,24 @@ Catch{
 
 # Check WINS configuration.
 $inf_str + "Testing if Network Adapters are configured to enable WINS Resolution: DNSEnabledForWINSResolution" | Tee-Object -FilePath $out_file -Append
-Try{
-    if ([bool](Get-WmiObject -Class Win32_NetworkAdapterConfiguration -Filter "IPEnabled=TRUE").DNSEnabledForWINSResolution){
+Try {
+    if ([bool](Get-WmiObject -Class Win32_NetworkAdapterConfiguration -Filter "IPEnabled=TRUE").DNSEnabledForWINSResolution) {
         $neg_str + "DNSEnabledForWINSResolution is enabled" | Tee-Object -FilePath $out_file -Append
     } else {
         $pos_str + "DNSEnabledForWINSResolution is disabled" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for WINS Resolution: DNSEnabledForWINSResolution failed." | Tee-Object -FilePath $out_file -Append
 }
 
 $inf_str + "Testing if Network Adapters are configured to enable WINS Resolution: WINSEnableLMHostsLookup" | Tee-Object -FilePath $out_file -Append
-Try{
-    if ([bool](Get-WmiObject -Class Win32_NetworkAdapterConfiguration -Filter "IPEnabled=TRUE").WINSEnableLMHostsLookup){
+Try {
+    if ([bool](Get-WmiObject -Class Win32_NetworkAdapterConfiguration -Filter "IPEnabled=TRUE").WINSEnableLMHostsLookup) {
         $neg_str + "WINSEnableLMHostsLookup is enabled" | Tee-Object -FilePath $out_file -Append
     } else {
         $pos_str + "WINSEnableLMHostsLookup is disabled" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for WINS Resolution: WINSEnableLMHostsLookup failed." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -885,15 +845,14 @@ Catch{
 # Disable LLMNR
 ###############################
 $inf_str + "Testing if LLMNR is disabled." | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $resllmnr = (Get-ItemProperty -path 'HKLM:\Software\policies\Microsoft\Windows NT\DNSClient' -ErrorAction SilentlyContinue).EnableMulticast
-    if ($resllmnr -ne $null){
+    if ($null -ne $resllmnr) {
         $pos_str + "DNSClient.EnableMulticast is disabled: $resllmnr" | Tee-Object -FilePath $out_file -Append
     } else {
         $neg_str + "DNSClient.EnableMulticast does not exist or is enabled: $resllmnr" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for LLMNR failed." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -902,10 +861,10 @@ Catch{
 ###############################
 
 $inf_str + "Testing if Computer Browser service is disabled." | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $resbr = (Get-Service -name Browser).Status
-    if ($resbr -ne $null){
-        if ($resbr -eq 'Running'){
+    if ($null -ne $resbr) {
+        if ($resbr -eq 'Running') {
             $neg_str + "Computer Browser service is: $resbr" | Tee-Object -FilePath $out_file -Append
         } else {
             $pos_str + "Computer Browser service is: $resbr" | Tee-Object -FilePath $out_file -Append
@@ -913,8 +872,7 @@ Try{
     } else {
         $inf_str + "Computer Browser service was not found: $resbr" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for Computer Browser service failed." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -927,19 +885,18 @@ Resources:
 #>
 
 $inf_str + "Testing if NetBios is disabled." | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $resnetb = (Get-WmiObject -Class Win32_NetWorkAdapterConfiguration -Filter "IPEnabled=$true").TcpipNetbiosOptions
-    if ($resnetb -eq $null){
+    if ($null -eq $resnetb) {
         $neg_str + "NetBios TcpipNetbiosOptions key does not exist." | Tee-Object -FilePath $out_file -Append
     } else {
-        if ([int]$resnetb -eq 2){
+        if ([int]$resnetb -eq 2) {
             $pos_str + "NetBios is Disabled: $resnetb" | Tee-Object -FilePath $out_file -Append
         } else {
             $neg_str + "NetBios is Enabled: $resnetb" | Tee-Object -FilePath $out_file -Append
         }
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for NetBios failed." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -948,33 +905,31 @@ Catch{
 ###############################
 # Disable Windows Scripting Host (WSH) & Control Scripting File Extensions
 $inf_str + "Testing if Windows Scripting Host (WSH) is disabled." | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $ressh = (Get-ItemProperty -path 'HKLM:\Software\Microsoft\Windows Script Host\Settings').Enabled
-    if ($ressh -eq $null){
+    if ($null -eq $ressh) {
         $neg_str + "WSH Setting Enabled key does not exist." | Tee-Object -FilePath $out_file -Append
     } else {
-        if ($ressh){
+        if ($ressh) {
             $neg_str + "WSH Setting Enabled key is Enabled: $ressh" | Tee-Object -FilePath $out_file -Append
         } else {
             $pos_str + "WSH Setting Enabled key is Disabled: $ressh" | Tee-Object -FilePath $out_file -Append
         }
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for Windows Scripting Host (WSH) failed." | Tee-Object -FilePath $out_file -Append
 }
 
 # Deploy security back-port patch (KB2871997).
-$inf_str +  "Testing if security back-port patch KB2871997 is installed by check installation date." | Tee-Object -FilePath $out_file -Append
-Try{
+$inf_str + "Testing if security back-port patch KB2871997 is installed by check installation date." | Tee-Object -FilePath $out_file -Append
+Try {
     $reshf = (Get-HotFix -id KB2871997 -ErrorAction SilentlyContinue).InstalledOn
-    if ($reshf -ne $null){
+    if ($null -ne $reshf) {
         $pos_str + "KB2871997 is installed: $reshf" | Tee-Object -FilePath $out_file -Append
     } else {
         $neg_str + "KB2871997 is not installed." | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for security back-port patch KB2871997 failed." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -991,26 +946,24 @@ Resources:
 #>
 
 $inf_str + "Testing if PowerShell LocalAccountTokenFilterPolicy in Policies is Disabled" | Tee-Object -FilePath $out_file -Append
-Try{
-    if ([bool](Get-ItemProperty -path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\policies\system' -ErrorAction SilentlyContinue).LocalAccountTokenFilterPolicy){
+Try {
+    if ([bool](Get-ItemProperty -path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\policies\system' -ErrorAction SilentlyContinue).LocalAccountTokenFilterPolicy) {
         $neg_str + "LocalAccountTokenFilterPolicy Is Set" | Tee-Object -FilePath $out_file -Append
     } else {
         $pos_str + "LocalAccountTokenFilterPolicy Is Not Set" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for LocalAccountTokenFilterPolicy in Policies failed." | Tee-Object -FilePath $out_file -Append
 }
 
 $inf_str + "Testing if PowerShell LocalAccountTokenFilterPolicy in Wow6432Node Policies is Disabled" | Tee-Object -FilePath $out_file -Append
-Try{
-    if ([bool](Get-ItemProperty -path 'HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\policies\system' -ErrorAction SilentlyContinue).LocalAccountTokenFilterPolicy){
+Try {
+    if ([bool](Get-ItemProperty -path 'HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\policies\system' -ErrorAction SilentlyContinue).LocalAccountTokenFilterPolicy) {
         $neg_str + "LocalAccountTokenFilterPolicy in Wow6432Node Is Set" | Tee-Object -FilePath $out_file -Append
     } else {
         $pos_str + "LocalAccountTokenFilterPolicy in Wow6432Node Is Not Set" | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for LocalAccountTokenFilterPolicy in Wow6432Node failed." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -1020,19 +973,18 @@ Catch{
 # Ensure WDigest is disabled
 
 $inf_str + "Testing if WDigest is disabled."
-Try{
+Try {
     $reswd = (Get-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest').UseLogonCredential
-    if ($reswd -eq $null){
+    if ($null -eq $reswd) {
         $neg_str + "WDigest UseLogonCredential key does not exist." | Tee-Object -FilePath $out_file -Append
     } else {
-        if ($reswd){
+        if ($reswd) {
             $neg_str + "WDigest UseLogonCredential key is Enabled: $reswd" | Tee-Object -FilePath $out_file -Append
         } else {
             $pos_str + "WDigest UseLogonCredential key is Disabled: $reswd" | Tee-Object -FilePath $out_file -Append
         }
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for WDigest failed." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -1049,7 +1001,7 @@ Resources:
 
 # Remove SMB v1 support
 $inf_str + "Testing if SMBv1 is disabled." | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $ressmb = Get-SmbServerConfiguration | Select-Object EnableSMB1Protocol 
     $inf_str + "Testing if SMBv1 is disabled." | Tee-Object -FilePath $out_file -Append
     if ([bool] $ressmb) { 
@@ -1063,8 +1015,7 @@ Try{
     } else { 
         $neg_str + "SMBv1 Auditing is Disabled"  | Tee-Object -FilePath $out_file -Append
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for SMBv1 failed." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -1078,21 +1029,20 @@ Resources:
     How to Verify if Device Guard is Enabled or Disabled in Windows 10: https://www.tenforums.com/tutorials/68926-verify-if-device-guard-enabled-disabled-windows-10-a.html
 #>
 
-if ([System.Environment]::OSVersion.Version.Major -eq 10){
+if ([System.Environment]::OSVersion.Version.Major -eq 10) {
     $inf_str + "Testing if Untrusted Fonts are disabled using the Kernel MitigationOptions." | Tee-Object -FilePath $out_file -Append
-    Try{
+    Try {
         $resuf = (Get-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Kernel\').MitigationOptions
-        if ($resuf -eq $null){
+        if ($null -eq $resuf) {
             $neg_str + "Kernel MitigationOptions key does not exist." | Tee-Object -FilePath $out_file -Append
         } else {
-            if ($ressh -ge 2000000000000){
+            if ($ressh -ge 2000000000000) {
                 $neg_str + "Kernel MitigationOptions key is configured not to block: $resuf" | Tee-Object -FilePath $out_file -Append
             } else {
                 $pos_str + "Kernel MitigationOptions key is set to block: $resuf" | Tee-Object -FilePath $out_file -Append
             }
         }
-    }
-    Catch{
+    } Catch {
         $err_str + "Testing for Untrusted Fonts configuration failed." | Tee-Object -FilePath $out_file -Append
     }
 } else {
@@ -1111,28 +1061,26 @@ Resources:
     Security Focus: Check Credential Guard Status with PowerShell: https://blogs.technet.microsoft.com/poshchap/2016/09/23/security-focus-check-credential-guard-status-with-powershell/
 #>
 
-if ([System.Environment]::OSVersion.Version.Major -eq 10){
+if ([System.Environment]::OSVersion.Version.Major -eq 10) {
     $inf_str + "Testing for Credential Guard." | Tee-Object -FilePath $out_file -Append
-    Try{
-        if ((Get-CimInstance –ClassName Win32_DeviceGuard –Namespace root\Microsoft\Windows\DeviceGuard).SecurityServicesRunning){
+    Try {
+        if ((Get-CimInstance –ClassName Win32_DeviceGuard –Namespace root\Microsoft\Windows\DeviceGuard).SecurityServicesRunning) {
             $pos_str + "Credential Guard or HVCI service is running." | Tee-Object -FilePath $out_file -Append
         } else {
             $neg_str + "Credential Guard or HVCI service is not running." | Tee-Object -FilePath $out_file -Append
         }
-    }
-    Catch{
+    } Catch {
         $err_str + "Testing for Credential Guard failed." | Tee-Object -FilePath $out_file -Append
     }
 
     $inf_str + "Testing for Device Guard." | Tee-Object -FilePath $out_file -Append
-    Try{
-        if ((Get-CimInstance –ClassName Win32_DeviceGuard –Namespace root\Microsoft\Windows\DeviceGuard).AvailableSecurityProperties){
+    Try {
+        if ((Get-CimInstance –ClassName Win32_DeviceGuard –Namespace root\Microsoft\Windows\DeviceGuard).AvailableSecurityProperties) {
             $pos_str + "Device Guard appears to be configured." | Tee-Object -FilePath $out_file -Append
         } else {
             $neg_str + "Device Guard, no properties exist and therefore is not configured." | Tee-Object -FilePath $out_file -Append
         }
-    }
-    Catch{
+    } Catch {
         $err_str + "Testing for Device Guard failed." | Tee-Object -FilePath $out_file -Append
     }
 
@@ -1153,71 +1101,67 @@ Resources:
 #>
 
 $inf_str + "Testing Lanman Authentication for NoLmHash registry key." | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $reslm = (Get-ItemProperty -path 'HKLM:\System\CurrentControlSet\Control\Lsa\').NoLmHash
-    if ($reslm -eq $null){
+    if ($null -eq $reslm) {
         $neg_str + "NoLmHash registry key is not configured." | Tee-Object -FilePath $out_file -Append
     } else {
-        if ($reslm){
+        if ($reslm) {
             $pos_str + "NoLmHash registry key is configured: $reslm" | Tee-Object -FilePath $out_file -Append
         } else {        
             $neg_str + "NoLmHash registry key is not configured: $reslm" | Tee-Object -FilePath $out_file -Append
         }   
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for NoLmHash registry key failed." | Tee-Object -FilePath $out_file -Append
 }
 
 $inf_str + "Testing Lanman Authentication for LM Compatability Level registry key." | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $reslmcl = (Get-ItemProperty -path 'HKLM:\System\CurrentControlSet\Control\Lsa\').LmCompatibilityLevel
-    if ($reslmcl -eq $null){
+    if ($null -eq $reslmcl) {
         $neg_str + "LM Compatability Level registry key is not configured." | Tee-Object -FilePath $out_file -Append
     } else {
-        if ([int]$reslmcl -eq 5){
+        if ([int]$reslmcl -eq 5) {
             $pos_str + "LM Compatability Level is configured correctly: $reslmcl" | Tee-Object -FilePath $out_file -Append
         } else {        
             $neg_str + "LM Compatability Level is not configured to prevent LM and NTLM: $reslmcl" | Tee-Object -FilePath $out_file -Append
         }   
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for LM Compatability registry key failed." | Tee-Object -FilePath $out_file -Append
 }
 
 # Restrict Anonymous Enumeration
 $inf_str + "Testing Domain and Local Anonymous Enumeration settings: RestrictAnonymous." | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $resra = (Get-ItemProperty -path 'HKLM:\System\CurrentControlSet\Control\Lsa\').RestrictAnonymous 
-    if ($resra -eq $null){
+    if ($null -eq $resra) {
         $neg_str + "RestrictAnonymous registry key is not configured." | Tee-Object -FilePath $out_file -Append
     } else {
-        if ($resra){
+        if ($resra) {
             $pos_str + "RestrictAnonymous registry key is configured: $resra" | Tee-Object -FilePath $out_file -Append
         } else {        
             $neg_str + "RestrictAnonymous registry key is not configured: $resra" | Tee-Object -FilePath $out_file -Append
         }   
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for Anonymous Enumeration RestrictAnonymous failed." | Tee-Object -FilePath $out_file -Append
 }
 
 $inf_str + "Testing Domain and Local Anonymous Enumeration settings: RestrictAnonymoussam" | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $resras = (Get-ItemProperty -path 'HKLM:\System\CurrentControlSet\Control\Lsa\').RestrictAnonymoussam 
-    if ($resras -eq $null){
+    if ($null -eq $resras) {
         $neg_str + "RestrictAnonymoussam registry key is not configured." | Tee-Object -FilePath $out_file -Append
     } else {
-        if ($resras){
+        if ($resras) {
             $pos_str + "RestrictAnonymoussam registry key is configured: $resras" | Tee-Object -FilePath $out_file -Append
         } else {        
             $neg_str + "RestrictAnonymoussam registry key is not configured: $resras" | Tee-Object -FilePath $out_file -Append
         }   
     }
-}
-Catch{
+} Catch {
     $err_str + "Testing for Anonymous Enumeration RestrictAnonymoussam failed." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -1241,14 +1185,13 @@ Resources:
 
 $inf_str + "Testing Restrict RPC Clients settings." | Tee-Object -FilePath $out_file -Append
 $resrpc = (Get-ItemProperty -path 'HKLM:\Software\Policies\Microsoft\Windows NT\Rpc\' -ErrorAction SilentlyContinue).RestrictRemoteClients 
-Try{
-    if ($resrpc){
+Try {
+    if ($resrpc) {
         $pos_str + "RestrictRemoteClients registry key is configured: $resrpc" | Tee-Object -FilePath $out_file -Append
     } else {        
         $neg_str + "RestrictRemoteClients registry key is not configured: $resrpc" | Tee-Object -FilePath $out_file -Append
     }   
-}
-Catch{
+} Catch {
     $err_str + "Testing Restrict RPC Clients settings failed." | Tee-Object -FilePath $out_file -Append
 }
 
@@ -1263,28 +1206,26 @@ Resource:
 #>
 
 $inf_str + "Testing NTLM Session Server Security settings." | Tee-Object -FilePath $out_file -Append
-Try{
+Try {
     $resntssec = (Get-ItemProperty -path 'HKLM:\System\CurrentControlSet\Control\Lsa\MSV1_0' -ErrorAction SilentlyContinue).NtlmMinServerSec
-    if ([int]$resntssec -eq 537395200){
+    if ([int]$resntssec -eq 537395200) {
         $pos_str + "NTLM Session Server Security settings is configured to require NTLMv2 and 128-bit encryption: $resntssec" | Tee-Object -FilePath $out_file -Append
     } else {        
         $neg_str + "NTLM Session Server Security settings is not configured to require NTLMv2 and 128-bit encryption: $resntssec" | Tee-Object -FilePath $out_file -Append
     }   
-}
-Catch{
+} Catch {
     $err_str + "Testing NTLM Session Server Security settings failed." | Tee-Object -FilePath $out_file -Append
 }
 
 $inf_str + "Testing NTLM Session Client Security settings." | Tee-Object -FilePath $out_file -Append
 $resntcsec = (Get-ItemProperty -path 'HKLM:\System\CurrentControlSet\Control\Lsa\MSV1_0' -ErrorAction SilentlyContinue).NtlmMinClientSec
-Try{
-    if ([int]$resntcsec -eq 537395200){
+Try {
+    if ([int]$resntcsec -eq 537395200) {
         $pos_str + "NTLM Session Client Security settings is configured to require NTLMv2 and 128-bit encryption: $resntcsec" | Tee-Object -FilePath $out_file -Append
     } else {        
         $neg_str + "NTLM Session Client Security settings is not configured to require NTLMv2 and 128-bit encryption: $resntcsec" | Tee-Object -FilePath $out_file -Append
     }   
-}
-Catch{
+} Catch {
     $err_str + "Testing NTLM Session Client Security settings failed." | Tee-Object -FilePath $out_file -Append
 }
 

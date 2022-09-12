@@ -36,7 +36,7 @@ $trans_file = "$env:temp\$chaps_dest\$Env:ComputerName-chaps-PS-transcript.txt"
 
 ########## Check for Administrator Role ##############
 $inf_str + "Start Date/Time: $(get-date -format yyyyMMddTHHmmssffzz)" | Tee-Object -FilePath $out_file -Append
-if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")){ 
+if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) { 
     "You do not have Administrator rights. Some checks will not succeed. Note warnings." | Tee-Object -FilePath $out_file -Append
 } else {
     "Script running with Administrator rights." | Tee-Object -FilePath $out_file -Append
