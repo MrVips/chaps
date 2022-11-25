@@ -703,7 +703,7 @@ Try {
 ###############################
 $inf_str + "Testing if Local Administrator Password Solution (LAPS) is installed." | Tee-Object -FilePath $out_file -Append
 Try {
-    if (Test-Path ‘C:\program files\LAPS\CSE\Admpwd.dll’) {
+    if (Test-Path "C:\program files\LAPS\CSE\Admpwd.dll") {
         $pos_str + "Local Administrator Password Solution (LAPS) is installed." | Tee-Object -FilePath $out_file -Append
     } else {
         $neg_str + "Local Administrator Password Solution (LAPS) is not installed." | Tee-Object -FilePath $out_file -Append
